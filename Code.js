@@ -157,25 +157,15 @@ function findImageByTitle(container, targetTitle) {
 }
 
 function startDrawingByImageTitle(imageTitle) {
-  var doc = DocumentApp.getActiveDocument();
-  var body = doc.getBody();
-  
-  // 지정된 타이틀을 가진 이미지 찾기
-  var imageElement = findImageElementByTitle(body, imageTitle);
-  
-  if (imageElement) {
-    // 이미지 타이틀 저장
-    PropertiesService.getDocumentProperties().setProperty('imageTitle', imageTitle);
+  PropertiesService.getDocumentProperties().setProperty('imageTitle', imageTitle);
 
-    // 그리기 다이얼로그 표시
-    var html = HtmlService.createHtmlOutputFromFile('DrawDialog')
-      .setWidth(600)
-      .setHeight(400);
-    DocumentApp.getUi().showModalDialog(html, '그리기');
-  } else {
-    DocumentApp.getUi().alert('해당 타이틀의 이미지를 찾을 수 없습니다.');
-  }
+  var html = HtmlService.createHtmlOutputFromFile('DrawDialog')
+    .setWidth(600)
+    .setHeight(400);
+  DocumentApp.getUi().showModalDialog(html, '그리기');
 }
+
+
 
 function startDrawing() {
   var doc = DocumentApp.getActiveDocument();
@@ -209,22 +199,24 @@ function replaceImage(imageData) {
     var searchResult = findImageElementByTitle(body, imageTitle);
     if (searchResult) {
       var blob = Utilities.newBlob(Utilities.base64Decode(imageData), 'image/png', 'drawing.png');
-      // base64 데이터로 변환하여 alert
       var parent = searchResult.getParent();
       var insertedImage = parent.insertInlineImage(parent.getChildIndex(searchResult), blob);
 
-      // **원래 이미지의 너비와 높이 가져오기**
+      // 원래 이미지의 너비와 높이 가져오기
       var originalWidth = searchResult.getWidth();
       var originalHeight = searchResult.getHeight();
       var originalTitle = searchResult.getAltTitle();
 
-      // **새로운 이미지의 크기를 원래 이미지와 동일하게 설정**
+      // 새로운 이미지의 크기와 타이틀 설정
       insertedImage.setWidth(originalWidth);
       insertedImage.setHeight(originalHeight);
       insertedImage.setAltTitle(originalTitle);
 
-      // **기존 이미지 제거**
+      // 기존 이미지 제거
       parent.removeChild(searchResult);
+
+      // **이미지 타이틀 반환**
+      return imageTitle;
     } else {
       DocumentApp.getUi().alert('이미지를 찾을 수 없습니다.');
     }
@@ -232,6 +224,8 @@ function replaceImage(imageData) {
     DocumentApp.getUi().alert('이미지 제목 정보를 찾을 수 없습니다.');
   }
 }
+
+
 
 function findImageElementByTitle(container, targetTitle) {
   var numChildren = container.getNumChildren();
@@ -256,7 +250,59 @@ function findImageElementByTitle(container, targetTitle) {
 
 
 function openAsHTML() {
-  var htmlContent = openAsHTMLContent();
+  var doc = DocumentApp.getActiveDocument();
+  var docId = doc.getId();
+
+  // Google Docs에서 이미지 정보 수집
+  var imageTitles = getImageTitlesWithIndex(doc);
+
+  // 문서를 HTML로 내보내기
+  var url = 'https://docs.google.com/feeds/download/documents/export/Export?id=' + docId + '&exportFormat=html';
+
+  var params = {
+    method: 'get',
+    headers: {
+      'Authorization': 'Bearer ' + ScriptApp.getOAuthToken()
+    },
+    muteHttpExceptions: true
+  };
+
+  var response = UrlFetchApp.fetch(url, params);
+  var htmlContent = response.getContentText();
+
+  // HTML 콘텐츠에서 이미지 태그에 alt 속성 추가
+  htmlContent = addAltAttributesToImages(htmlContent, imageTitles);
+
+  // 클라이언트 사이드 스크립트 추가
+  var script = '<script>' +
+    'function addImageClickHandlers() {' +
+    '  var imgs = document.getElementsByTagName("img");' +
+    '  for (var i = 0; i < imgs.length; i++) {' +
+    '    imgs[i].onclick = function() {' +
+    '      var altTitle = this.getAttribute("alt");' +
+    '      if (altTitle) {' +
+    '        google.script.run.startDrawingByImageTitle(altTitle);' +
+    '      } else {' +
+    '        alert("이미지에 타이틀이 없습니다.");' +
+    '      }' +
+    '    };' +
+    '  }' +
+    '}' +
+    'function checkForUpdates() {' +
+    '  google.script.run.withSuccessHandler(function(updated) {' +
+    '    if (updated) {' +
+    '      location.reload();' +
+    '    }' +
+    '  }).checkForImageUpdate();' +
+    '}' +
+    'window.onload = function() {' +
+    '  addImageClickHandlers();' +
+    '  setInterval(checkForUpdates, 5000);' + // 5초마다 업데이트 확인
+    '};' +
+    '</script>';
+
+  // 스크립트를 HTML 콘텐츠의 </body> 태그 전에 삽입
+  htmlContent = htmlContent.replace('</body>', script + '</body>');
 
   var htmlOutput = HtmlService.createHtmlOutput(htmlContent)
     .setWidth(800)
@@ -265,6 +311,7 @@ function openAsHTML() {
 
   DocumentApp.getUi().showModelessDialog(htmlOutput, '문서의 HTML 보기');
 }
+
 
 
 function openAsHTMLContent() {
@@ -312,27 +359,31 @@ function getScriptTag() {
     '    imgs[i].onclick = function() {' +
     '      var altTitle = this.getAttribute("alt");' +
     '      if (altTitle) {' +
-    '        google.script.run.startDrawingByImageTitle(altTitle);' +
+    '        google.script.run.withSuccessHandler(function(imageTitle) {' +
+    '          updateImageByAltTitle(imageTitle);' +
+    '        }).startDrawingByImageTitle(altTitle);' +
     '      } else {' +
     '        alert("이미지에 타이틀이 없습니다.");' +
     '      }' +
     '    };' +
     '  }' +
     '}' +
-    'function updatePage(htmlContent) {' +
-    '  document.open();' +
-    '  document.write(htmlContent);' +
-    '  document.close();' +
+    'function updateImageByAltTitle(altTitle) {' +
+    '  var imgs = document.getElementsByTagName("img");' +
+    '  for (var i = 0; i < imgs.length; i++) {' +
+    '    if (imgs[i].getAttribute("alt") === altTitle) {' +
+    '      var src = imgs[i].getAttribute("src").split("?")[0];' +
+    '      var separator = src.indexOf("?") === -1 ? "?" : "&";' +
+    '      imgs[i].setAttribute("src", src + separator + "time=" + new Date().getTime());' +
+    '      break;' +
+    '    }' +
+    '  }' +
     '}' +
     'window.onload = function() {' +
     '  addImageClickHandlers();' +
     '};' +
-    'window.onfocus = function() {' +
-    '  google.script.run.withSuccessHandler(updatePage).getUpdatedHTML();' +
-    '};' +
     '</script>';
 }
-
 
 
 function getImageTitlesWithIndex(doc) {
@@ -375,48 +426,39 @@ function addAltAttributesToImages(htmlContent, imageTitles) {
   for (var i = 0; i < imgTags.length; i++) {
     var imgTag = imgTags[i];
     var altTitle = imageTitles[i] ? imageTitles[i].altTitle : '';
+    var newImgTag = imgTag;
+
     // alt 속성을 추가 또는 수정
-    var newImgTag;
     if (imgTag.indexOf('alt=') > -1) {
-      // 기존 alt 속성이 있으면 교체
-      newImgTag = imgTag.replace(/alt="[^"]*"/, 'alt="' + altTitle + '"');
+      newImgTag = newImgTag.replace(/alt="[^"]*"/, 'alt="' + altTitle + '"');
     } else {
-      // alt 속성이 없으면 추가
-      newImgTag = imgTag.replace('<img ', '<img alt="' + altTitle + '" ');
+      newImgTag = newImgTag.replace('<img ', '<img alt="' + altTitle + '" ');
     }
-    // HTML 콘텐츠에서 기존 img 태그를 새로운 태그로 교체
+
+    // id 속성 추가
+    newImgTag = newImgTag.replace('<img ', '<img id="img_' + i + '" ');
+
+    // 기존 img 태그를 새로운 태그로 교체
     htmlContent = htmlContent.replace(imgTag, newImgTag);
   }
   return htmlContent;
 }
 
-function getUpdatedHTML() {
-  var doc = DocumentApp.getActiveDocument();
-  var docId = doc.getId();
 
-  // Google Docs에서 이미지 정보 수집
-  var imageTitles = getImageTitlesWithIndex(doc);
 
-  // 문서를 HTML로 내보내기
-  var url = 'https://docs.google.com/feeds/download/documents/export/Export?id=' + docId + '&exportFormat=html';
+function checkForImageUpdate() {
+  var properties = PropertiesService.getDocumentProperties();
+  var imageUpdated = properties.getProperty('imageUpdated');
 
-  var params = {
-    method: 'get',
-    headers: {
-      'Authorization': 'Bearer ' + ScriptApp.getOAuthToken()
-    },
-    muteHttpExceptions: true
-  };
-
-  var response = UrlFetchApp.fetch(url, params);
-  var htmlContent = response.getContentText();
-
-  // HTML 콘텐츠에서 이미지 태그에 alt 속성 추가
-  htmlContent = addAltAttributesToImages(htmlContent, imageTitles);
-
-  // 스크립트를 HTML 콘텐츠의 </body> 태그 전에 삽입
-  htmlContent = htmlContent.replace('</body>', getScriptTag() + '</body>');
-
-  return htmlContent;
+  if (imageUpdated === 'true') {
+    // 업데이트 신호를 다시 false로 설정
+    properties.setProperty('imageUpdated', 'false');
+    return true;
+  }
+  return false;
 }
 
+
+function notifyImageUpdated(imageTitle) {
+  return imageTitle;
+}
