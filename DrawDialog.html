@@ -14,17 +14,19 @@
     </style>
   </head>
   <body>
-    <canvas id="canvas" width="530" height="126"></canvas>
+    <!-- 캔버스의 ID를 'drawingCanvas'로 변경 -->
+    <canvas id="drawingCanvas" width="530" height="126"></canvas>
     <div id="controls">
       <button onclick="clearCanvas()">지우기</button>
-      <button onclick="submitCanvas()">완료</button>
+      <!-- 버튼의 onclick 이벤트를 'saveDrawing()'으로 변경 -->
+      <button onclick="saveDrawing()">완료</button>
     </div>
     <script>
-      var canvas = document.getElementById('canvas');
+      var canvas = document.getElementById('drawingCanvas');
       var ctx = canvas.getContext('2d');
       var drawing = false;
 
-      // **검정색으로 선 색상 설정**
+      // 검정색으로 선 색상 설정
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 2; // 선의 두께 설정 (필요에 따라 조정 가능)
 
@@ -78,12 +80,32 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
 
-      function submitCanvas() {
-        var dataUrl = canvas.toDataURL().split(',')[1];
-        google.script.run.withSuccessHandler(function() {
-          google.script.host.close();
-        }).replaceImage(dataUrl);
+      // 기존의 'submitCanvas()' 함수를 'saveDrawing()' 함수로 대체
+      function saveDrawing() {
+        var canvas = document.getElementById('drawingCanvas');
+        var imageData = canvas.toDataURL('image/png').split(',')[1];
+
+        google.script.run.withSuccessHandler(function(imageTitle) {
+          google.script.host.close(); // 다이얼로그 닫기
+          // 업데이트된 이미지를 클라이언트 측에서 처리
+          google.script.run.withSuccessHandler(function() {
+            updateImageByAltTitle(imageTitle);
+          }).notifyImageUpdated(imageTitle);
+        }).replaceImage(imageData);
       }
+
+      function updateImageByAltTitle(altTitle) {
+        var imgs = document.getElementsByTagName("img");
+        for (var i = 0; i < imgs.length; i++) {
+          if (imgs[i].getAttribute("alt") === altTitle) {
+            var src = imgs[i].getAttribute("src").split("?")[0];
+            var separator = src.indexOf("?") === -1 ? "?" : "&";
+            imgs[i].setAttribute("src", src + separator + "time=" + new Date().getTime());
+            break;
+          }
+        }
+      }
+
     </script>
   </body>
 </html>
