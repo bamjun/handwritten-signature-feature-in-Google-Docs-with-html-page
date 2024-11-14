@@ -2,7 +2,6 @@
 
 ![alt text](images/markdown-test.gif)
 
-
 # appsscript.json 추가
 ```
 {
