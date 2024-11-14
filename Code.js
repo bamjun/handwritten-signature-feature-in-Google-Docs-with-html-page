@@ -3,7 +3,7 @@ function onOpen() {
     .createMenu('커스텀 메뉴')
     .addItem('HTML로 열기', 'openAsHTML')
     // .addItem('그리기 시작', 'startDrawing')
-    // .addItem('초기화', 'initializeImages') // 초기화 버튼 추가
+    .addItem('초기화', 'initializeImages') // 초기화 버튼 추가
     // .addItem('서명 목록 보기', 'showImageTitles') // 이미지 타이틀 보기 메뉴 추가
     .addToUi();
 
