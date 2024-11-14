@@ -302,7 +302,7 @@ function openAsHTML() {
     .setHeight(600)
     .setSandboxMode(HtmlService.SandboxMode.IFRAME); // Sandbox 모드 설정
 
-  DocumentApp.getUi().showModelessDialog(htmlOutput, '문서의 HTML 보기');
+  DocumentApp.getUi().showModelessDialog(htmlOutput, 'Docs');
 }
 
 
