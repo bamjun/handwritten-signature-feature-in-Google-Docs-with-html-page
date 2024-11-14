@@ -163,7 +163,7 @@ function startDrawingByImageTitle(imageTitle) {
   var html = HtmlService.createHtmlOutputFromFile('DrawDialog')
   .setWidth(600)
     .setHeight(400);
-    DocumentApp.getUi().showModalDialog(html, '그리기');
+    DocumentApp.getUi().showModalDialog(html, imageTitle);
   }
 
 

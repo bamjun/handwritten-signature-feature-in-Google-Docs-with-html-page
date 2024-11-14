@@ -3,9 +3,6 @@
 ![alt text](images/markdown-test.gif)
 
 
-# 서비스 추가
-![alt text](images/markdown-image.png)
-
 # appsscript.json 추가
 ```
 {
