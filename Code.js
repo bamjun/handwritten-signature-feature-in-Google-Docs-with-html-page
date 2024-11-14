@@ -2,12 +2,13 @@ function onOpen() {
   DocumentApp.getUi()
     .createMenu('커스텀 메뉴')
     .addItem('HTML로 열기', 'openAsHTML')
-    .addItem('그리기 시작', 'startDrawing')
-    .addItem('초기화', 'initializeImages') // 초기화 버튼 추가
-    .addItem('서명 목록 보기', 'showImageTitles') // 이미지 타이틀 보기 메뉴 추가
+    // .addItem('그리기 시작', 'startDrawing')
+    // .addItem('초기화', 'initializeImages') // 초기화 버튼 추가
+    // .addItem('서명 목록 보기', 'showImageTitles') // 이미지 타이틀 보기 메뉴 추가
     .addToUi();
 
-  showImageTitles();
+  openAsHTML();
+  // showImageTitles();
 }
 
 function showImageTitles() {
@@ -158,29 +159,29 @@ function findImageByTitle(container, targetTitle) {
 
 function startDrawingByImageTitle(imageTitle) {
   PropertiesService.getDocumentProperties().setProperty('imageTitle', imageTitle);
-
+  
   var html = HtmlService.createHtmlOutputFromFile('DrawDialog')
-    .setWidth(600)
+  .setWidth(600)
     .setHeight(400);
-  DocumentApp.getUi().showModalDialog(html, '그리기');
-}
+    DocumentApp.getUi().showModalDialog(html, '그리기');
+  }
 
 
-
-function startDrawing() {
-  var doc = DocumentApp.getActiveDocument();
-  var selection = doc.getSelection();
-
-  if (selection) {
-    var elements = selection.getRangeElements();
-    if (elements.length === 1 && elements[0].getElement().getType() === DocumentApp.ElementType.INLINE_IMAGE) {
-      var imageElement = elements[0].getElement(); // 선택한 이미지 요소
+  
+  function startDrawing() {
+    var doc = DocumentApp.getActiveDocument();
+    var selection = doc.getSelection();
+    
+    if (selection) {
+      var elements = selection.getRangeElements();
+      if (elements.length === 1 && elements[0].getElement().getType() === DocumentApp.ElementType.INLINE_IMAGE) {
+        var imageElement = elements[0].getElement(); // 선택한 이미지 요소
       var imageTitle = imageElement.getAltTitle(); // 이미지 제목
       PropertiesService.getDocumentProperties().setProperty('imageTitle', imageTitle);
-
+      
       var html = HtmlService.createHtmlOutputFromFile('DrawDialog')
-        .setWidth(600)
-        .setHeight(400);
+      .setWidth(600)
+      .setHeight(400);
       DocumentApp.getUi().showModalDialog(html, '그리기');
     } else {
       DocumentApp.getUi().alert('이미지를 선택해주세요.');
@@ -288,16 +289,8 @@ function openAsHTML() {
     '    };' +
     '  }' +
     '}' +
-    'function checkForUpdates() {' +
-    '  google.script.run.withSuccessHandler(function(updated) {' +
-    '    if (updated) {' +
-    '      location.reload();' +
-    '    }' +
-    '  }).checkForImageUpdate();' +
-    '}' +
     'window.onload = function() {' +
     '  addImageClickHandlers();' +
-    '  setInterval(checkForUpdates, 5000);' + // 5초마다 업데이트 확인
     '};' +
     '</script>';
 
@@ -372,20 +365,7 @@ function addAltAttributesToImages(htmlContent, imageTitles) {
 }
 
 
-
-function checkForImageUpdate() {
-  var properties = PropertiesService.getDocumentProperties();
-  var imageUpdated = properties.getProperty('imageUpdated');
-
-  if (imageUpdated === 'true') {
-    // 업데이트 신호를 다시 false로 설정
-    properties.setProperty('imageUpdated', 'false');
-    return true;
-  }
-  return false;
-}
-
-
 function notifyImageUpdated(imageTitle) {
+  openAsHTML();
   return imageTitle;
 }
